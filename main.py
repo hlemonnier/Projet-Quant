@@ -102,12 +102,19 @@ def retrieve_data() :
     AND consol='C' 
     AND datadate BETWEEN '2020-01-01' AND '2020-12-31'
     """)
-    print(depreciation_amortization_data())
-    
+    print(depreciation_amortization_data.head())
+
     # Exécutez la requête pour obtenir les données de cash flow
-    cash_flows_data = db.raw_sql(cash_flows_query)
-    final_data = pd.merge(cash_flows_data, compustat_data[['gvkey', 'conm']], on='gvkey', how='left')
-    final_data_cleaned = final_data.dropna(subset=['oancfy'])
-    return tickers_str, final_data_cleaned, gvkey_list
+    dfs = [net_income_data, shares_outstanding_data, total_investments_data, total_liabilities_data, operating_income_data, depreciation_amortization_data]
+    final_df = dfs[0]
+    for df in dfs[1:]:
+        final_df = pd.merge(final_df, df, on=['tic', 'datadate'], how='outer')
+    
+    # Nettoyer le DataFrame final si nécessaire
+    # Par exemple, en supprimant les lignes avec des données manquantes
+    final_df_cleaned = final_df.dropna()
+
+    # Exporter le DataFrame final en fichier Excel
+    final_df_cleaned.to_excel('financial_data.xlsx', index=False)
 
 retrieve_data() 
