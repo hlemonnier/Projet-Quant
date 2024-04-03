@@ -93,13 +93,59 @@ def ratio_calculation(final_df):
     final_df['operating_margin'] = final_df['operating_income'] / final_df['total_revenues']
     # Gestion des valeurs infinies ou manquantes après les calculs
     final_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    final_df.dropna(subset=['roi', 'roe','current_ratio', 'debt_ratio', 'operating_margin'], inplace=True)
+    final_df.dropna(subset=['roi', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin'], inplace=True)
 
     # Vous pouvez alors procéder à exporter le DataFrame mis à jour si nécessaire.
     final_df.to_excel('financial_data.xlsx', index=False)
-    pass
+    return final_df
 
 
 final_df = retrieve_data()
-ratio_calculation(final_df)
+df_with_ratio = ratio_calculation(final_df)
+
+
+def EDA(df):
+    # Convert the 'datadate' column to datetime
+    df['datadate'] = pd.to_datetime(df['datadate'])
+
+    # Summary statistics for numerical columns
+    print(df.describe())
+    # Calculate the mean ROI for each year across all companies
+    mean_roi_by_year = df.groupby(df['datadate'].dt.year)['roi'].mean().reset_index()
+
+    # Plotting the mean ROI trend
+    plt.figure(figsize=(14, 7))
+    sns.lineplot(x='datadate', y='roi', data=mean_roi_by_year)
+    plt.title('Mean Trend of ROI for All Companies (2015-2023)')
+    plt.xlabel('Year')
+    plt.ylabel('Mean Return on Investment')
+    plt.show()
+
+    # Boxplots for different financial ratios
+    financial_ratios = ['roi', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
+
+    for ratio in financial_ratios:
+        plt.figure(figsize=(10, 5))
+        sns.boxplot(x=df[ratio])
+        plt.title(f'Distribution of {ratio} Across All Companies (2015-2023)')
+        plt.xlabel(ratio)
+        plt.show()
+
+    # Boxplot of ROI by year for all companies
+    plt.figure(figsize=(14, 7))
+    sns.boxplot(x=df['datadate'].dt.year, y='roi', data=df)
+    plt.title('Annual ROI Distribution Across All Companies (2015-2023)')
+    plt.xlabel('Year')
+    plt.ylabel('Return on Investment')
+    plt.show()
+
+    # Correlation heatmap for numerical features
+    correlation_matrix = df.select_dtypes(include=[np.number]).corr()
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
+    plt.title('Correlation Heatmap for Financial Ratios (2015-2023)')
+    plt.show()
+
+
+EDA(df_with_ratio)
 logging.info("End of programme ")
