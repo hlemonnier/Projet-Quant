@@ -55,16 +55,16 @@ def retrieve_data(use_cached=True):
         # Interrogez Compustat pour obtenir les cash flows opérationnels
         logging.info(f"Starting the data retrieving...")
         retrieve_data_sql = db.raw_sql(f"""
-            SELECT gvkey, datadate, conm, ni, csho, at as total_investments, lt AS total_liabilities, oiadp AS operating_income, dp AS depreciation_amortization,act AS current_assets,lct AS current_liabilities,dltt AS total_debt, 
-        sale AS total_revenues 
-            FROM comp.funda 
-            WHERE gvkey IN ('{gvkeys_str}')
-            AND datadate BETWEEN '2015-01-01' AND '2023-12-31'
-            AND indfmt = 'INDL'
-            AND datafmt='STD' 
-            AND popsrc='D' 
-            AND consol='C' 
-            ORDER BY gvkey, datadate
+            SELECT a.gvkey, a.datadate, a.conm, b.sic, b.gsector, b.gsubind, a.ni, a.csho as shares_outsanding, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
+            FROM comp.funda AS a
+            JOIN comp.company AS b ON a.gvkey = b.gvkey                           
+            WHERE a.gvkey IN ('{gvkeys_str}')
+            AND a.datadate BETWEEN '2015-01-01' AND '2023-12-31'
+            AND a.indfmt = 'INDL'
+            AND a.datafmt='STD' 
+            AND a.popsrc='D' 
+            AND a.consol='C' 
+            ORDER BY a.gvkey, a.datadate
             """)
 
         logging.info(f"Processing data : {retrieve_data_sql}")
@@ -73,8 +73,9 @@ def retrieve_data(use_cached=True):
         dfs = [retrieve_data_sql]
         final_df = dfs[0]
         for df in dfs[1:]:
-            final_df = pd.merge(final_df, df, on=['gvkey', 'datadate', 'conm'], how='outer')
+            final_df = pd.merge(final_df, df, on=['gvkey', 'datadate', 'conm','sic'], how='outer')
         # Exporter le DataFrame final en fichier Excel
+    final_df.to_excel('financial_data.xlsx', index=False)
     logging.info("Excel file created")
     return pd.read_excel(file_name)
 
@@ -83,8 +84,8 @@ def ratio_calculation(final_df):
     # Calcul de Capitaux Propres comme différence entre Total des Actifs (`total_investments`) et Total des Passifs (
     # `total_liabilities`)
     final_df['equity'] = final_df['total_investments'] - final_df['total_liabilities']
-    # ROI
-    final_df['roi'] = final_df['ni'] / final_df['total_investments']
+    # ROA
+    final_df['roa'] = final_df['ni'] / final_df['total_investments']
     # ROE
     final_df['roe'] = final_df['ni'] / final_df['equity']
     # Ratio de Liquidité Courante
@@ -95,7 +96,7 @@ def ratio_calculation(final_df):
     final_df['operating_margin'] = final_df['operating_income'] / final_df['total_revenues']
     # Gestion des valeurs infinies ou manquantes après les calculs
     final_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    final_df.dropna(subset=['roi', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin'], inplace=True)
+    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin'], inplace=True)
 
     # Vous pouvez alors procéder à exporter le DataFrame mis à jour si nécessaire.
     final_df.to_excel('financial_data.xlsx', index=False)
@@ -112,19 +113,19 @@ def EDA(df):
 
     # Summary statistics for numerical columns
     print(df.describe())
-    # Calculate the mean ROI for each year across all companies
-    mean_roi_by_year = df.groupby(df['datadate'].dt.year)['roi'].mean().reset_index()
+    # Calculate the mean ROA for each year across all companies
+    mean_roa_by_year = df.groupby(df['datadate'].dt.year)['roa'].mean().reset_index()
 
-    # Plotting the mean ROI trend
+    # Plotting the mean ROA trend
     plt.figure(figsize=(14, 7))
-    sns.lineplot(x='datadate', y='roi', data=mean_roi_by_year)
-    plt.title('Mean Trend of ROI for All Companies (2015-2023)')
+    sns.lineplot(x='datadate', y='roa', data=mean_roa_by_year)
+    plt.title('Mean Trend of ROA for All Companies (2015-2023)')
     plt.xlabel('Year')
     plt.ylabel('Mean Return on Investment')
     plt.show()
 
     # Boxplots for different financial ratios
-    financial_ratios = ['roi', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
+    financial_ratios = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
 
     for ratio in financial_ratios:
         plt.figure(figsize=(10, 5))
@@ -133,10 +134,10 @@ def EDA(df):
         plt.xlabel(ratio)
         plt.show()
 
-    # Boxplot of ROI by year for all companies
+    # Boxplot of ROA by year for all companies
     plt.figure(figsize=(14, 7))
-    sns.boxplot(x=df['datadate'].dt.year, y='roi', data=df)
-    plt.title('Annual ROI Distribution Across All Companies (2015-2023)')
+    sns.boxplot(x=df['datadate'].dt.year, y='roa', data=df)
+    plt.title('Annual ROA Distribution Across All Companies (2015-2023)')
     plt.xlabel('Year')
     plt.ylabel('Return on Investment')
     plt.show()
@@ -150,21 +151,21 @@ def EDA(df):
 
     # Select a subset of ratios for the pair plot to keep it readable
     sample_df = df.sample(n=10000, random_state=1)  # Adjust n as needed
-    selected_ratios = ['roi', 'roe', 'current_ratio', 'debt_ratio']
+    selected_ratios = ['roa', 'roe', 'current_ratio', 'debt_ratio']
     sns.pairplot(sample_df[selected_ratios])
     plt.suptitle('Pair Plot of Selected Financial Ratios', y=1.02)  # Adjust y for title to display correctly
     plt.show()
 
     # Outlier detection
-    Q1 = df['roi'].quantile(0.25)
-    Q3 = df['roi'].quantile(0.75)
+    Q1 = df['roa'].quantile(0.25)
+    Q3 = df['roa'].quantile(0.75)
     IQR = Q3 - Q1
     outlier_threshold = 1.5 * IQR
-    df['roi_outlier'] = ((df['roi'] < (Q1 - outlier_threshold)) | (df['roi'] > (Q3 + outlier_threshold)))
+    df['roa_outlier'] = ((df['roa'] < (Q1 - outlier_threshold)) | (df['roa'] > (Q3 + outlier_threshold)))
 
     # Time series decomposition (assuming monthly data with annual seasonality)
     # Please adjust the 'period' parameter based on your data's frequency
-    time_series = df.set_index('datadate')['roi']
+    time_series = df.set_index('datadate')['roa']
     time_series = time_series.resample('M').mean().dropna()  # Resampling to monthly frequency
     decomp = seasonal_decompose(time_series, model='additive', period=12)
 
