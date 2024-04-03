@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
+from statsmodels.tsa.seasonal import seasonal_decompose
 import logging
 import os
 from tqdm import tqdm
@@ -18,7 +19,8 @@ logging.basicConfig(filename='journal.log', level=logging.INFO,
 def retrieve_data(use_cached=True):
     file_name = "financial_data.xlsx"
     if os.path.exists(file_name) and use_cached:
-        use_cache = input(f"Le fichier {file_name} existe déjà. Voulez-vous utiliser les données en cache ? (y/n): ").lower()
+        use_cache = input(
+            f"Le fichier {file_name} existe déjà. Voulez-vous utiliser les données en cache ? (y/n): ").lower()
         if use_cache == 'y':
             logging.info("Chargement des données à partir du fichier Excel local.")
             return pd.read_excel(file_name)
@@ -144,6 +146,30 @@ def EDA(df):
     plt.figure(figsize=(12, 10))
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
     plt.title('Correlation Heatmap for Financial Ratios (2015-2023)')
+    plt.show()
+
+    # Select a subset of ratios for the pair plot to keep it readable
+    sample_df = df.sample(n=10000, random_state=1)  # Adjust n as needed
+    selected_ratios = ['roi', 'roe', 'current_ratio', 'debt_ratio']
+    sns.pairplot(sample_df[selected_ratios])
+    plt.suptitle('Pair Plot of Selected Financial Ratios', y=1.02)  # Adjust y for title to display correctly
+    plt.show()
+
+    # Outlier detection
+    Q1 = df['roi'].quantile(0.25)
+    Q3 = df['roi'].quantile(0.75)
+    IQR = Q3 - Q1
+    outlier_threshold = 1.5 * IQR
+    df['roi_outlier'] = ((df['roi'] < (Q1 - outlier_threshold)) | (df['roi'] > (Q3 + outlier_threshold)))
+
+    # Time series decomposition (assuming monthly data with annual seasonality)
+    # Please adjust the 'period' parameter based on your data's frequency
+    time_series = df.set_index('datadate')['roi']
+    time_series = time_series.resample('M').mean().dropna()  # Resampling to monthly frequency
+    decomp = seasonal_decompose(time_series, model='additive', period=12)
+
+    plt.figure(figsize=(14, 7))
+    decomp.plot()
     plt.show()
 
 
