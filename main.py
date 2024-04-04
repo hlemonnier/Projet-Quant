@@ -137,15 +137,15 @@ def EDA(df):
 
     # Summary statistics for numerical columns
     print(df.describe())
-    # Calculate the mean ROA for each year across all companies
-    mean_roa_by_year = df.groupby(df['datadate'].dt.year)['roa'].mean().reset_index()
+    # Calculate the median ROA for each year across all companies
+    median_roa_by_year = df.groupby(df['datadate'].dt.year)['roa'].median().reset_index()
 
-    # Plotting the mean ROA trend
+    # Plotting the median ROA trend
     plt.figure(figsize=(14, 7))
-    sns.lineplot(x='datadate', y='roa', data=mean_roa_by_year)
-    plt.title('Mean Trend of ROA for All Companies (2015-2023)')
+    sns.lineplot(x='datadate', y='roa', data=median_roa_by_year)
+    plt.title('Median Trend of ROA for All Companies (2015-2023)')
     plt.xlabel('Year')
-    plt.ylabel('Mean Return on Investment')
+    plt.ylabel('Median Return on Investment')
     plt.show()
 
     # Boxplots for different financial ratios
@@ -190,7 +190,7 @@ def EDA(df):
     # Time series decomposition (assuming monthly data with annual seasonality)
     # Please adjust the 'period' parameter based on your data's frequency
     time_series = df.set_index('datadate')['roa']
-    time_series = time_series.resample('M').mean().dropna()  # Resampling to monthly frequency
+    time_series = time_series.resample('M').median().dropna()  # Resampling to monthly frequency
     decomp = seasonal_decompose(time_series, model='additive', period=12)
 
     plt.figure(figsize=(14, 7))
