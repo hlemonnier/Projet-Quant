@@ -319,5 +319,27 @@ model = sm.OLS(y, X_final).fit()
 # Print the summary of the regression model
 print(model.summary())
 
+# Tracer les valeurs prédites par rapport aux valeurs réelles
+y_pred = model.predict(X_final)
+
+plt.figure(figsize=(10, 6))
+plt.scatter(y, y_pred, alpha=0.3)  # alpha pour la transparence des points
+plt.plot(y, y, color="red")  # Une ligne représentant le modèle parfait
+plt.title('Valeurs prédites vs Valeurs réelles')
+plt.xlabel('Valeurs réelles de ROA')
+plt.ylabel('Valeurs prédites de ROA')
+plt.show()
+# Tracer les résidus du modèle
+residuals = y - y_pred
+
+plt.figure(figsize=(10, 6))
+plt.scatter(y_pred, residuals, alpha=0.3)
+plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
+plt.title('Diagramme des résidus')
+plt.xlabel('Valeurs prédites')
+plt.ylabel('Résidus')
+plt.show()
+
+
 # EDA(df_no_outliers)
 logging.info("End of programme ")
