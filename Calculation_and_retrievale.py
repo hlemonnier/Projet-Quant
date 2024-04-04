@@ -113,30 +113,15 @@ def filter_companies_with_data_for_2023(df):
     # Convertir la colonne 'datadate' en datetime si ce n'est pas déjà fait
     df['datadate'] = pd.to_datetime(df['datadate'])
 
-    # Identifier les gvkeys des entreprises ayant des données pour le 31 décembre 2023
-    gvkeys_with_data_for_2023 = df[df['datadate'] == '2023-12-31']['gvkey'].unique()
+    # Identifier les gvkeys des entreprises ayant des données pour l'année 2023
+    gvkeys_with_data_for_2023 = df[df['datadate'].dt.year == 2023]['gvkey'].unique()
 
     # Filtrer le DataFrame pour ne conserver que les données des entreprises identifiées
     filtered_df = df[df['gvkey'].isin(gvkeys_with_data_for_2023)]
-
+    # Identifier les gvkeys des entreprises qui ont des données non nulles et non NA pour 'equity' en 2023
+    # Supprimer toutes les lignes où 'equity' est NA
+    filtered_df = df.dropna(subset=['equity'])
     return filtered_df
-
-
-def remove_outliers(df, group_field, field):
-    # Group the data by the SIC code and calculate Z-scores within each group
-    df['z_score'] = df.groupby(group_field)[field].transform(lambda x: zscore(x, ddof=1))
-
-    # Define a threshold for identifying outliers
-    z_threshold = 3
-
-    # Remove outliers
-    df_no_outliers = df[df['z_score'].abs() <= z_threshold]
-
-    # Drop the z-score column as it's no longer needed
-    df_no_outliers = df_no_outliers.drop('z_score', axis=1)
-
-    return df_no_outliers
-
 
 def EDA(df):
     # Convert the 'datadate' column to datetime

@@ -6,9 +6,9 @@ logging.basicConfig(filename='journal.log', level=logging.INFO,
 
 def main_analysis_pipeline():
     final_df = retrieve_data()
-    df_filtered = filter_companies_with_data_for_2023(final_df)
-    df_with_ratio = ratio_calculation(df_filtered)
-    df_no_outliers = clean_outliers(df_with_ratio)
+    df_with_ratio = ratio_calculation(final_df)
+    df_filtered = filter_companies_with_data_for_2023(df_with_ratio)
+    df_no_outliers = df_filtered.copy()
     df_no_outliers.to_excel('financial_data.xlsx', index=False)
 
     X, y = prepare_variables(df_no_outliers)
@@ -31,8 +31,6 @@ def clean_outliers(df):
         'firm_value', 'EBITDA', 'Mcap', 'E/D+E', 'EV/EBITDA', "EV/EBITDA(1+tr)",
         "SD_StockPrice", "EV/EBIT"
     ]
-    for ratio in ratios_to_clean:
-        df = remove_outliers(df, 'sic', ratio)
     return df
 
 
