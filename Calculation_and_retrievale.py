@@ -287,3 +287,57 @@ def plot_predicted_vs_real(df_copy, y, y_pred):
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
 
     plt.show()
+
+
+def evaluate_model_performance(model, X, y, y_pred, df):
+    """
+    Évalue la performance du modèle de régression en calculant et affichant le R² et le R² ajusté,
+    et en traçant les graphiques des résidus et un Q-Q plot.
+
+    Parameters:
+    - model: Le modèle de régression ajusté.
+    - X: Les variables explicatives utilisées pour ajuster le modèle.
+    - y: La variable cible réelle.
+    - y_pred: Les valeurs prédites par le modèle.
+    - df: Le DataFrame contenant les données, utilisé pour afficher les noms des entreprises dans le graphique de dispersion.
+    """
+    import statsmodels.api as sm
+    import matplotlib.pyplot as plt
+    from scipy.stats import zscore
+    import seaborn as sns
+
+    # Calcul du R² et du R² ajusté
+    r_squared = model.rsquared
+    adjusted_r_squared = model.rsquared_adj
+    print(f"R-squared: {r_squared}")
+    print(f"Adjusted R-squared: {adjusted_r_squared}")
+
+    # Calcul des résidus
+    residuals = y - y_pred
+
+    # Diagramme des résidus
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y_pred, residuals, alpha=0.3)
+    plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
+    plt.title('Diagramme des résidus')
+    plt.xlabel('Valeurs prédites')
+    plt.ylabel('Résidus')
+    plt.show()
+
+    # Q-Q plot des résidus
+    sm.qqplot(residuals, line='s')
+    plt.title('Q-Q plot des résidus')
+    plt.show()
+
+    # Analyse de la distribution des résidus avec un histogramme
+    plt.figure(figsize=(10, 6))
+    sns.histplot(residuals, kde=True)
+    plt.title('Distribution des résidus')
+    plt.xlabel('Résidus')
+    plt.show()
+
+    # Test de Breusch-Pagan pour l'hétéroscédasticité
+    from statsmodels.stats.diagnostic import het_breuschpagan
+    bp_test = het_breuschpagan(residuals, model.model.exog)
+    labels = ['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value']
+    print("Test de Breusch-Pagan pour l'hétéroscédasticité :", dict(zip(labels, bp_test)))
