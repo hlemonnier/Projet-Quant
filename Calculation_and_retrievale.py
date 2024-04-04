@@ -267,44 +267,53 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
     return included
 
 
-def plot_predicted_vs_real(df_copy, y, y_pred):
-    import mplcursors
+def plot_predicted_vs_real(df_copy, y_real, y_pred):
+    """
+        Trace un graphique interactif comparant les valeurs prédites aux valeurs réelles,
+        avec une ligne représentant les prédictions parfaites et des annotations pour chaque point.
 
+        Parameters:
+        - df_copy: DataFrame contenant les données originales, utilisé pour extraire des informations supplémentaires pour les annotations.
+        - y_real: Série pandas contenant les valeurs réelles.
+        - y_pred: Série pandas contenant les valeurs prédites par le modèle.
+        """
     plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(y, y_pred, alpha=0.3)  # alpha for point transparency
-    plt.plot(y, y, color="red")  # A line representing the perfect model
-    plt.title('Predicted Values vs Real Values')
-    plt.xlabel('Real ROA Values')
-    plt.ylabel('Predicted ROA Values')
+    scatter = plt.scatter(y_real, y_pred, alpha=0.3, color='blue')  # alpha for point transparency
+    plt.title('Valeurs Prédites vs Valeurs Réelles')
+    plt.xlabel('Valeurs Réelles')
+    plt.ylabel('Valeurs Prédites')
+
+    # Trace la ligne y = x pour référence
+    max_val = max(y_real.max(), y_pred.max())
+    min_val = min(y_real.min(), y_pred.min())
+    plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', lw=2)
 
     cursor = mplcursors.cursor(scatter, hover=True)
 
     @cursor.connect("add")
     def on_add(sel):
-        # Ensure 'conm' is the column with company names
+        # Assurez-vous que 'conm' est la colonne avec les noms des entreprises
+        # Ajustez 'conm' au nom de votre colonne si nécessaire
         sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
-                           position=(20, 20))  # Adjust position as needed
+                           position=(20, -20))  # Ajustez la position selon le besoin
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
 
+    plt.grid(True)
     plt.show()
 
 
-def evaluate_model_performance(model, X, y, y_pred, df):
-    """
-    Évalue la performance du modèle de régression en calculant et affichant le R² et le R² ajusté,
-    et en traçant les graphiques des résidus et un Q-Q plot.
-
-    Parameters:
-    - model: Le modèle de régression ajusté.
-    - X: Les variables explicatives utilisées pour ajuster le modèle.
-    - y: La variable cible réelle.
-    - y_pred: Les valeurs prédites par le modèle.
-    - df: Le DataFrame contenant les données, utilisé pour afficher les noms des entreprises dans le graphique de dispersion.
-    """
+def evaluate_model_performance(model, X, y):
     import statsmodels.api as sm
     import matplotlib.pyplot as plt
     from scipy.stats import zscore
     import seaborn as sns
+
+    # Assurez-vous que X inclut la constante si votre modèle en dépend
+    if not 'const' in X.columns:
+        X = sm.add_constant(X)
+
+    # Recalculer y_pred pour s'assurer de l'alignement avec y
+    y_pred = model.predict(X)
 
     # Calcul du R² et du R² ajusté
     r_squared = model.rsquared
@@ -314,6 +323,9 @@ def evaluate_model_performance(model, X, y, y_pred, df):
 
     # Calcul des résidus
     residuals = y - y_pred
+
+    # Vérifiez que y_pred et y ont la même longueur (sécurité supplémentaire)
+    assert len(y_pred) == len(y), "y_pred and y must have the same length"
 
     # Diagramme des résidus
     plt.figure(figsize=(10, 6))
@@ -338,6 +350,7 @@ def evaluate_model_performance(model, X, y, y_pred, df):
 
     # Test de Breusch-Pagan pour l'hétéroscédasticité
     from statsmodels.stats.diagnostic import het_breuschpagan
-    bp_test = het_breuschpagan(residuals, model.model.exog)
+    bp_test = het_breuschpagan(residuals, X)
     labels = ['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value']
     print("Test de Breusch-Pagan pour l'hétéroscédasticité :", dict(zip(labels, bp_test)))
+
