@@ -15,7 +15,6 @@ import wrds
 logging.basicConfig(filename='journal.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
-
 def retrieve_data(use_cached=True):
     file_name = "financial_data.xlsx"
     if os.path.exists(file_name) and use_cached:
@@ -176,3 +175,24 @@ def EDA(df):
 
 EDA(df_with_ratio)
 logging.info("End of programme ")
+
+def filter_companies_with_data_for_2023(df):
+    # Convertir la colonne 'datadate' en datetime si ce n'est pas déjà fait
+    df['datadate'] = pd.to_datetime(df['datadate'])
+
+    # Identifier les gvkeys des entreprises ayant des données pour le 31 décembre 2023
+    gvkeys_with_data_for_2023 = df[df['datadate'] == '2023-12-31']['gvkey'].unique()
+
+    # Filtrer le DataFrame pour ne conserver que les données des entreprises identifiées
+    filtered_df = df[df['gvkey'].isin(gvkeys_with_data_for_2023)]
+
+    return filtered_df
+
+# Appliquer le filtrage
+df_filtered = filter_companies_with_data_for_2023(final_df)
+
+# Calcul des ratios financiers pour les entreprises filtrées
+df_with_ratios = ratio_calculation(df_filtered)
+
+# Effectuer l'EDA sur le DataFrame avec les ratios
+EDA(df_with_ratios)
