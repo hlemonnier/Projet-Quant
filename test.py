@@ -3,7 +3,12 @@ conn = wrds.Connection()
 conn.list_libraries().sort()
 type(conn.list_libraries())
 conn.list_tables(library='comp')
+
+list_sorted = sorted(conn.list_libraries())
+print(list_sorted)
 # Extract first 5 obs from comp.company
+list_table = conn.list_tables(library="compg")
+print(list_table)
 
 company = conn.get_table(library='comp', table='company', obs=5)
 company.shape

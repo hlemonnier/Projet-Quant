@@ -56,7 +56,7 @@ def retrieve_data(use_cached=True):
         logging.info("All gvkeys are recovered")
         logging.info(f"Starting the data retrieving...")
         retrieve_data_sql = db.raw_sql(f"""
-            SELECT a.gvkey, a.iid, a.tic, a.datadate, a.conm, a.exchg, b.sic, b.gsector, b.gsubind, c.prccm AS stock_price, a.ni, a.csho as shares_outsanding, a.dltt AS long_term_debt, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
+            SELECT a.gvkey, a.iid, a.tic, a.datadate, a.conm, a.exchg, b.sic, b.gsector, b.gsubind, c.prccm AS stock_price, a.ni,a.txt, a.csho as shares_outsanding, a.dltt AS long_term_debt, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
             FROM comp.funda AS a
             JOIN comp.company AS b ON a.gvkey = b.gvkey 
             INNER JOIN comp.secm c
@@ -100,9 +100,13 @@ def ratio_calculation(final_df):
     final_df['operating_margin'] = final_df['operating_income'] / final_df['total_revenues']
     # Gestion des valeurs infinies ou manquantes après les calculs
     final_df['firm_value']= final_df['equity']+final_df['long_term_debt']
+    #EBITDA
+    final_df['EBITDA']= final_df['operating_income']+final_df['depreciation_amortization']
+    #Market Cap
+    final_df['Mcap']= final_df['shares_outsanding']*final_df['stock_price']
 
     final_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value'], inplace=True)
+    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap"], inplace=True)
 
     return final_df
 
