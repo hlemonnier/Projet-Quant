@@ -54,12 +54,15 @@ def retrieve_data(use_cached=True):
         gvkeys_str = "', '".join(gvkey_list)
         logging.info(f"Processing gvkey: {gvkeys_str}")
         logging.info("All gvkeys are recovered")
-        # Interrogez Compustat pour obtenir les cash flows opérationnels
         logging.info(f"Starting the data retrieving...")
         retrieve_data_sql = db.raw_sql(f"""
-            SELECT a.gvkey, a.datadate, a.conm, b.sic, b.gsector, b.gsubind, a.ni, a.csho as shares_outsanding, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
+            SELECT a.gvkey, a.iid, a.tic, a.datadate, a.conm, a.exchg, b.sic, b.gsector, b.gsubind, c.prccm AS stock_price, a.ni, a.csho as shares_outsanding, a.dltt AS long_term_debt, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
             FROM comp.funda AS a
-            JOIN comp.company AS b ON a.gvkey = b.gvkey                           
+            JOIN comp.company AS b ON a.gvkey = b.gvkey 
+            INNER JOIN comp.secm c
+            on a.gvkey = c.gvkey
+            and a.iid = c.iid
+            and a.datadate = c.datadate
             WHERE a.gvkey IN ('{gvkeys_str}')
             AND a.datadate BETWEEN '2015-01-01' AND '2023-12-31'
             AND a.indfmt = 'INDL'
@@ -68,14 +71,13 @@ def retrieve_data(use_cached=True):
             AND a.consol='C' 
             ORDER BY a.gvkey, a.datadate
             """)
-
         logging.info(f"Processing data : {retrieve_data_sql}")
         logging.info("All datas are recovered")
-        # Exécutez la requête pour obtenir les données de cash flow
+        # Exécutez la requête pour obtenir les données
         dfs = [retrieve_data_sql]
         final_df = dfs[0]
         for df in dfs[1:]:
-            final_df = pd.merge(final_df, df, on=['gvkey', 'datadate', 'conm', 'sic'], how='outer')
+            final_df = pd.merge(final_df, df, on=['gvkey','iid' 'datadate', 'conm', 'sic'], how='outer')
         # Exporter le DataFrame final en fichier Excel
     final_df.to_excel('financial_data.xlsx', index=False)
     logging.info("Excel file created")
@@ -97,8 +99,10 @@ def ratio_calculation(final_df):
     # Marge Opérationnelle
     final_df['operating_margin'] = final_df['operating_income'] / final_df['total_revenues']
     # Gestion des valeurs infinies ou manquantes après les calculs
+    final_df['firm_value']= final_df['equity']+final_df['long_term_debt']
+
     final_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin'], inplace=True)
+    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value'], inplace=True)
 
     return final_df
 
