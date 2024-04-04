@@ -56,7 +56,7 @@ def retrieve_data(use_cached=True):
         logging.info("All gvkeys are recovered")
         logging.info(f"Starting the data retrieving...")
         retrieve_data_sql = db.raw_sql(f"""
-            SELECT a.gvkey, a.iid, a.tic, a.datadate, a.conm, a.exchg, b.sic, b.gsector, b.gsubind, c.prccm AS stock_price, a.ni,a.txt, a.csho as shares_outsanding, a.dltt AS long_term_debt, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
+            SELECT a.gvkey, a.iid, a.tic, a.datadate, a.conm, a.exchg, b.sic, b.gsector, b.gsubind, c.prccm AS stock_price, a.ni,a.txt, a.csho as shares_outstanding, a.dltt AS long_term_debt, a.at AS total_investments, a.lt AS total_liabilities, a.oiadp AS operating_income, a.dp AS depreciation_amortization, a.act AS current_assets, a.lct AS current_liabilities, a.dltt AS total_debt, a.sale AS total_revenues
             FROM comp.funda AS a
             JOIN comp.company AS b ON a.gvkey = b.gvkey 
             INNER JOIN comp.secm c
@@ -84,31 +84,28 @@ def retrieve_data(use_cached=True):
     return pd.read_excel(file_name)
 
 
-def ratio_calculation(final_df):
-    # Calcul de Capitaux Propres comme différence entre Total des Actifs (`total_investments`) et Total des Passifs (
-    # `total_liabilities`)
-    final_df['equity'] = final_df['total_investments'] - final_df['total_liabilities']
-    # ROA
-    final_df['roa'] = final_df['ni'] / final_df['total_investments']
-    # ROE
-    final_df['roe'] = final_df['ni'] / final_df['equity']
-    # Ratio de Liquidité Courante
-    final_df['current_ratio'] = final_df['current_assets'] / final_df['current_liabilities']
-    # Ratio d'Endettement
-    final_df['debt_ratio'] = final_df['total_debt'] / final_df['total_investments']
-    # Marge Opérationnelle
-    final_df['operating_margin'] = final_df['operating_income'] / final_df['total_revenues']
-    # Gestion des valeurs infinies ou manquantes après les calculs
-    final_df['firm_value']= final_df['equity']+final_df['long_term_debt']
-    #EBITDA
-    final_df['EBITDA']= final_df['operating_income']+final_df['depreciation_amortization']
-    #Market Cap
-    final_df['Mcap']= final_df['shares_outsanding']*final_df['stock_price']
+def ratio_calculation(df):
+    # It's good practice to work on a copy to avoid changing the original dataframe
+    df_copy = df.copy()
 
-    final_df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    final_df.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap"], inplace=True)
+    # Calculating financial ratios and other columns
+    df_copy.loc[:, 'equity'] = df_copy['total_investments'] - df_copy['total_liabilities']
+    df_copy.loc[:, 'roa'] = df_copy['ni'] / df_copy['total_investments']
+    df_copy.loc[:, 'roe'] = df_copy['ni'] / df_copy['equity']
+    df_copy.loc[:, 'current_ratio'] = df_copy['current_assets'] / df_copy['current_liabilities']
+    df_copy.loc[:, 'debt_ratio'] = df_copy['total_debt'] / df_copy['total_investments']
+    df_copy.loc[:, 'operating_margin'] = df_copy['operating_income'] / df_copy['total_revenues']
+    df_copy.loc[:, 'firm_value'] = df_copy['equity'] + df_copy['long_term_debt']
+    df_copy.loc[:, 'EBITDA'] = df_copy['operating_income'] + df_copy['depreciation_amortization']
+    df_copy.loc[:, 'Mcap'] = df_copy['shares_outstanding'] * df_copy['stock_price']
 
-    return final_df
+    # Handling infinite values and missing data
+    df_copy.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df_copy.dropna(
+        subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap'],
+        inplace=True)
+
+    return df_copy
 
 
 def filter_companies_with_data_for_2023(df):
@@ -223,20 +220,6 @@ def EDA(df):
     plt.show()
 
 
-final_df = retrieve_data()
-
-# Appliquer le filtrage
-df_filtered = filter_companies_with_data_for_2023(final_df)
-
-# Calcul des ratios financiers pour les entreprises filtrées
-df_with_ratio = ratio_calculation(df_filtered)
-
-ratios_to_clean = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
-for ratio in ratios_to_clean:
-    df_no_outliers = remove_outliers(df_with_ratio, 'sic', ratio)
-df_no_outliers.to_excel('financial_data.xlsx', index=False)
-
-
 def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0.1, verbose=True):
     """ Perform a forward-backward feature selection
     based on p-value from statsmodels.api.OLS
@@ -283,9 +266,34 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
     return included
 
 
+# List of financial ratios to clean for outliers
+ratios_to_clean = [
+    'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap'
+]
+
+# Retrieve initial data
+final_df = retrieve_data()
+
+# Apply filtering
+df_filtered = filter_companies_with_data_for_2023(final_df)
+
+# Calculate financial ratios for filtered companies
+df_with_ratio = ratio_calculation(df_filtered)
+
+# Copy the dataframe to preserve the original
+df_no_outliers = df_with_ratio.copy()
+
+# Remove outliers for each financial ratio
+for ratio in ratios_to_clean:
+    df_no_outliers = remove_outliers(df_no_outliers, 'sic', ratio)
+
+# Exporting the final data without outliers to Excel
+df_no_outliers.to_excel('financial_data.xlsx', index=False)
+
+
 # Dropping specified columns to prepare explanatory variables X
 columns_to_drop = [
-    'iid','tic','exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outsanding'
+    'iid','tic','exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
 ]
 X = df_no_outliers.drop(columns=columns_to_drop)
 
