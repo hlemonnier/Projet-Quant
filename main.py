@@ -131,6 +131,73 @@ def remove_outliers(df, group_field, field):
     return df_no_outliers
 
 
+def EDA(df):
+    # Convert the 'datadate' column to datetime
+    df['datadate'] = pd.to_datetime(df['datadate'])
+
+    # Summary statistics for numerical columns
+    print(df.describe())
+    # Calculate the mean ROA for each year across all companies
+    mean_roa_by_year = df.groupby(df['datadate'].dt.year)['roa'].mean().reset_index()
+
+    # Plotting the mean ROA trend
+    plt.figure(figsize=(14, 7))
+    sns.lineplot(x='datadate', y='roa', data=mean_roa_by_year)
+    plt.title('Mean Trend of ROA for All Companies (2015-2023)')
+    plt.xlabel('Year')
+    plt.ylabel('Mean Return on Investment')
+    plt.show()
+
+    # Boxplots for different financial ratios
+    financial_ratios = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
+
+    for ratio in financial_ratios:
+        plt.figure(figsize=(10, 5))
+        sns.boxplot(x=df[ratio])
+        plt.title(f'Distribution of {ratio} Across All Companies (2015-2023)')
+        plt.xlabel(ratio)
+        plt.show()
+
+    # Boxplot of ROA by year for all companies
+    plt.figure(figsize=(14, 7))
+    sns.boxplot(x=df['datadate'].dt.year, y='roa', data=df)
+    plt.title('Annual ROA Distribution Across All Companies (2015-2023)')
+    plt.xlabel('Year')
+    plt.ylabel('Return on Investment')
+    plt.show()
+
+    # Correlation heatmap for numerical features
+    correlation_matrix = df.select_dtypes(include=[np.number]).corr()
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
+    plt.title('Correlation Heatmap for Financial Ratios (2015-2023)')
+    plt.show()
+
+    # Select a subset of ratios for the pair plot to keep it readable
+    sample_df = df.sample(n=10000, random_state=1)  # Adjust n as needed
+    selected_ratios = ['roa', 'roe', 'current_ratio', 'debt_ratio']
+    sns.pairplot(sample_df[selected_ratios])
+    plt.suptitle('Pair Plot of Selected Financial Ratios', y=1.02)  # Adjust y for title to display correctly
+    plt.show()
+
+    # Outlier detection
+    Q1 = df['roa'].quantile(0.25)
+    Q3 = df['roa'].quantile(0.75)
+    IQR = Q3 - Q1
+    outlier_threshold = 1.5 * IQR
+    df['roa_outlier'] = ((df['roa'] < (Q1 - outlier_threshold)) | (df['roa'] > (Q3 + outlier_threshold)))
+
+    # Time series decomposition (assuming monthly data with annual seasonality)
+    # Please adjust the 'period' parameter based on your data's frequency
+    time_series = df.set_index('datadate')['roa']
+    time_series = time_series.resample('M').mean().dropna()  # Resampling to monthly frequency
+    decomp = seasonal_decompose(time_series, model='additive', period=12)
+
+    plt.figure(figsize=(14, 7))
+    decomp.plot()
+    plt.show()
+
+
 final_df = retrieve_data()
 
 # Appliquer le filtrage
@@ -139,10 +206,10 @@ df_filtered = filter_companies_with_data_for_2023(final_df)
 # Calcul des ratios financiers pour les entreprises filtrées
 df_with_ratio = ratio_calculation(df_filtered)
 
-
-ratios_to_clean = ['roa','roe', 'current_ratio', 'debt_ratio', 'operating_margin']
+ratios_to_clean = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
 for ratio in ratios_to_clean:
     df_no_outliers = remove_outliers(df_with_ratio, 'sic', ratio)
 df_no_outliers.to_excel('financial_data.xlsx', index=False)
 
+EDA(df_no_outliers)
 logging.info("End of programme ")
