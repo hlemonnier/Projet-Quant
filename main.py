@@ -75,11 +75,11 @@ def retrieve_data(use_cached=True):
         logging.info("All datas are recovered")
         # Exécutez la requête pour obtenir les données
         dfs = [retrieve_data_sql]
-        final_df = dfs[0]
+        df_copy = dfs[0]
         for df in dfs[1:]:
-            final_df = pd.merge(final_df, df, on=['gvkey','iid' 'datadate', 'conm', 'sic'], how='outer')
+            df_copy = pd.merge(df_copy, df, on=['gvkey','iid' 'datadate', 'conm', 'sic'], how='outer')
         # Exporter le DataFrame final en fichier Excel
-    final_df.to_excel('financial_data.xlsx', index=False)
+    df_copy.to_excel('financial_data.xlsx', index=False)
     logging.info("Excel file created")
     return pd.read_excel(file_name)
 
@@ -98,12 +98,13 @@ def ratio_calculation(df):
     df_copy.loc[:, 'firm_value'] = df_copy['equity'] + df_copy['long_term_debt']
     df_copy.loc[:, 'EBITDA'] = df_copy['operating_income'] + df_copy['depreciation_amortization']
     df_copy.loc[:, 'Mcap'] = df_copy['shares_outstanding'] * df_copy['stock_price']
-
-    # Handling infinite values and missing data
+    df_copy.loc[:, 'E/D+E']= df_copy['equity']/(df_copy['long_term_debt']+df_copy['equity'])
+    df_copy['EV/EBITDA'] = df_copy['firm_value'] / df_copy['EBITDA']
+    df_copy['EV/EBITDA(1+tr)'] = df_copy['firm_value'] / (df_copy['EBITDA'] * (1 + df_copy['txt']))
+    std_devs = df_copy.groupby('gvkey')['stock_price'].std()
+    df_copy['SD_StockPrice'] = df_copy['gvkey'].map(std_devs)
     df_copy.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df_copy.dropna(
-        subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap'],
-        inplace=True)
+    df_copy.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap","E/D+E","EV/EBITDA","EV/EBITDA(1+tr)","SD_StockPrice"], inplace=True)
 
     return df_copy
 
