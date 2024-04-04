@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tsa.seasonal import seasonal_decompose
 import logging
@@ -14,7 +15,6 @@ import os
 from tqdm import tqdm
 import wrds
 import mplcursors
-
 
 logging.basicConfig(filename='journal.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
@@ -79,7 +79,7 @@ def retrieve_data(use_cached=True):
         dfs = [retrieve_data_sql]
         df_copy = dfs[0]
         for df in dfs[1:]:
-            df_copy = pd.merge(df_copy, df, on=['gvkey','iid' 'datadate', 'conm', 'sic'], how='outer')
+            df_copy = pd.merge(df_copy, df, on=['gvkey', 'iid' 'datadate', 'conm', 'sic'], how='outer')
         # Exporter le DataFrame final en fichier Excel
     df_copy.to_excel('financial_data.xlsx', index=False)
     logging.info("Excel file created")
@@ -100,13 +100,15 @@ def ratio_calculation(df):
     df_copy.loc[:, 'firm_value'] = df_copy['equity'] + df_copy['long_term_debt']
     df_copy.loc[:, 'EBITDA'] = df_copy['operating_income'] + df_copy['depreciation_amortization']
     df_copy.loc[:, 'Mcap'] = df_copy['shares_outstanding'] * df_copy['stock_price']
-    df_copy.loc[:, 'E/D+E']= df_copy['equity']/(df_copy['long_term_debt']+df_copy['equity'])
+    df_copy.loc[:, 'E/D+E'] = df_copy['equity'] / (df_copy['long_term_debt'] + df_copy['equity'])
     df_copy['EV/EBITDA'] = df_copy['firm_value'] / df_copy['EBITDA']
     df_copy['EV/EBITDA(1+tr)'] = df_copy['firm_value'] / (df_copy['EBITDA'] * (1 + df_copy['txt']))
     std_devs = df_copy.groupby('gvkey')['stock_price'].std()
     df_copy['SD_StockPrice'] = df_copy['gvkey'].map(std_devs)
     df_copy.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df_copy.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap","E/D+E","EV/EBITDA","EV/EBITDA(1+tr)","SD_StockPrice"], inplace=True)
+    df_copy.dropna(
+        subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', "EBITDA", "Mcap",
+                "E/D+E", "EV/EBITDA", "EV/EBITDA(1+tr)", "SD_StockPrice"], inplace=True)
 
     return df_copy
 
@@ -270,7 +272,8 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
 
 
 # List of financial ratios to clean for outliers
-ratios_to_clean = [ 'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap', 'E/D+E','EV/EBITDA',"EV/EBITDA(1+tr)","SD_StockPrice"]
+ratios_to_clean = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap',
+                   'E/D+E', 'EV/EBITDA', "EV/EBITDA(1+tr)", "SD_StockPrice"]
 
 # Retrieve initial data
 final_df = retrieve_data()
@@ -291,10 +294,9 @@ for ratio in ratios_to_clean:
 # Exporting the final data without outliers to Excel
 df_no_outliers.to_excel('financial_data.xlsx', index=False)
 
-
 # Dropping specified columns to prepare explanatory variables X
 columns_to_drop = [
-    'iid','tic','exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
+    'iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
 ]
 X = df_no_outliers.drop(columns=columns_to_drop)
 
@@ -335,9 +337,30 @@ model = sm.OLS(y, X_final).fit()
 
 # Print the summary of the regression model
 print(model.summary())
+# Effectuez le test de Breusch-Pagan sur les résidus
+bp_test = het_breuschpagan(model.resid, model.model.exog)
+bp_test_stat, bp_p_value, _, _ = bp_test
 
+# Imprimez les résultats du test
+print('Statistique de test Breusch-Pagan:', bp_test_stat)
+print('p-value du test Breusch-Pagan:', bp_p_value)
+
+# Prenez une décision basée sur la p-value
+threshold = 0.05  # Définissez votre seuil ici
+if bp_p_value < threshold:
+    print(f"La p-value du test Breusch-Pagan est {bp_p_value}, indiquant une hétéroscédasticité significative.")
+    # Ici, vous pouvez envisager des corrections pour l'hétéroscédasticité
+    # Par exemple, utiliser des erreurs standards robustes dans votre modèle
+    model_robust = sm.OLS(y, X_final).fit(cov_type='HC3')
+    print("Modèle ajusté avec des erreurs standards robustes.")
+else:
+    print(
+        f"La p-value du test Breusch-Pagan est {bp_p_value}, il n'y a pas de preuve significative d'hétéroscédasticité.")
+    # Vous pouvez continuer avec votre modèle actuel
+    print("Modèle ajusté sans besoin de corrections pour l'hétéroscédasticité.")
 # Tracer les valeurs prédites par rapport aux valeurs réelles
-y_pred = model.predict(X_final)
+y_pred = model_robust.predict(X_final)
+
 
 def plot_predicted_vs_real(df_copy, y, y_pred):
     import mplcursors
@@ -350,14 +373,16 @@ def plot_predicted_vs_real(df_copy, y, y_pred):
     plt.ylabel('Predicted ROA Values')
 
     cursor = mplcursors.cursor(scatter, hover=True)
+
     @cursor.connect("add")
     def on_add(sel):
         # Ensure 'conm' is the column with company names
-        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index], 
+        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
                            position=(20, 20))  # Adjust position as needed
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
 
     plt.show()
+
 
 # Call the function with the required arguments
 plot_predicted_vs_real(df_with_ratio, y, y_pred)
@@ -365,15 +390,12 @@ plot_predicted_vs_real(df_with_ratio, y, y_pred)
 # Tracer les résidus du modèle
 residuals = y - y_pred
 
-plt.figure(figsize=(10, 6))
-plt.scatter(y_pred, residuals, alpha=0.3)
-plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
-plt.title('Diagramme des résidus')
+plt.scatter(y_pred, model_robust.resid)
 plt.xlabel('Valeurs prédites')
 plt.ylabel('Résidus')
+plt.title('Residuals vs Fitted')
+plt.axhline(0, color='red', linestyle='dashed')
 plt.show()
-
-
 
 # EDA(df_no_outliers)
 logging.info("End of programme ")
