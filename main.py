@@ -105,8 +105,9 @@ def ratio_calculation(df):
     df_copy['EV/EBITDA(1+tr)'] = df_copy['firm_value'] / (df_copy['EBITDA'] * (1 + df_copy['txt']))
     std_devs = df_copy.groupby('gvkey')['stock_price'].std()
     df_copy['SD_StockPrice'] = df_copy['gvkey'].map(std_devs)
+    df_copy['EV/EBIT'] = df_copy['firm_value'] / df_copy['operating_income']
     df_copy.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df_copy.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap","E/D+E","EV/EBITDA","EV/EBITDA(1+tr)","SD_StockPrice"], inplace=True)
+    df_copy.dropna(subset=['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin','firm_value',"EBITDA","Mcap","E/D+E","EV/EBITDA","EV/EBITDA(1+tr)","SD_StockPrice","EV/EBIT"], inplace=True)
 
     return df_copy
 
@@ -270,7 +271,7 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
 
 
 # List of financial ratios to clean for outliers
-ratios_to_clean = [ 'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap', 'E/D+E','EV/EBITDA',"EV/EBITDA(1+tr)","SD_StockPrice"]
+ratios_to_clean = [ 'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap', 'E/D+E','EV/EBITDA',"EV/EBITDA(1+tr)","SD_StockPrice","EV/EBIT"]
 
 # Retrieve initial data
 final_df = retrieve_data()
@@ -356,7 +357,7 @@ def plot_predicted_vs_real(df_copy, y, y_pred):
         sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index], 
                            position=(20, 20))  # Adjust position as needed
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
-
+    
     plt.show()
 
 # Call the function with the required arguments
@@ -372,8 +373,6 @@ plt.title('Diagramme des résidus')
 plt.xlabel('Valeurs prédites')
 plt.ylabel('Résidus')
 plt.show()
-
-
 
 # EDA(df_no_outliers)
 logging.info("End of programme ")
