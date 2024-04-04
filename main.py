@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tsa.seasonal import seasonal_decompose
 import logging
@@ -292,10 +293,9 @@ for ratio in ratios_to_clean:
 # Exporting the final data without outliers to Excel
 df_no_outliers.to_excel('financial_data.xlsx', index=False)
 
-
 # Dropping specified columns to prepare explanatory variables X
 columns_to_drop = [
-    'iid','tic','exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
+    'iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
 ]
 X = df_no_outliers.drop(columns=columns_to_drop)
 
@@ -336,9 +336,30 @@ model = sm.OLS(y, X_final).fit()
 
 # Print the summary of the regression model
 print(model.summary())
+# Effectuez le test de Breusch-Pagan sur les résidus
+bp_test = het_breuschpagan(model.resid, model.model.exog)
+bp_test_stat, bp_p_value, _, _ = bp_test
 
+# Imprimez les résultats du test
+print('Statistique de test Breusch-Pagan:', bp_test_stat)
+print('p-value du test Breusch-Pagan:', bp_p_value)
+
+# Prenez une décision basée sur la p-value
+threshold = 0.05  # Définissez votre seuil ici
+if bp_p_value < threshold:
+    print(f"La p-value du test Breusch-Pagan est {bp_p_value}, indiquant une hétéroscédasticité significative.")
+    # Ici, vous pouvez envisager des corrections pour l'hétéroscédasticité
+    # Par exemple, utiliser des erreurs standards robustes dans votre modèle
+    model_robust = sm.OLS(y, X_final).fit(cov_type='HC3')
+    print("Modèle ajusté avec des erreurs standards robustes.")
+else:
+    print(
+        f"La p-value du test Breusch-Pagan est {bp_p_value}, il n'y a pas de preuve significative d'hétéroscédasticité.")
+    # Vous pouvez continuer avec votre modèle actuel
+    print("Modèle ajusté sans besoin de corrections pour l'hétéroscédasticité.")
 # Tracer les valeurs prédites par rapport aux valeurs réelles
-y_pred = model.predict(X_final)
+y_pred = model_robust.predict(X_final)
+
 
 def plot_predicted_vs_real(df_copy, y, y_pred):
     import mplcursors
@@ -351,14 +372,16 @@ def plot_predicted_vs_real(df_copy, y, y_pred):
     plt.ylabel('Predicted ROA Values')
 
     cursor = mplcursors.cursor(scatter, hover=True)
+
     @cursor.connect("add")
     def on_add(sel):
         # Ensure 'conm' is the column with company names
-        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index], 
+        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
                            position=(20, 20))  # Adjust position as needed
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
-    
+
     plt.show()
+
 
 # Call the function with the required arguments
 plot_predicted_vs_real(df_with_ratio, y, y_pred)
@@ -366,12 +389,11 @@ plot_predicted_vs_real(df_with_ratio, y, y_pred)
 # Tracer les résidus du modèle
 residuals = y - y_pred
 
-plt.figure(figsize=(10, 6))
-plt.scatter(y_pred, residuals, alpha=0.3)
-plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
-plt.title('Diagramme des résidus')
+plt.scatter(y_pred, model_robust.resid)
 plt.xlabel('Valeurs prédites')
 plt.ylabel('Résidus')
+plt.title('Residuals vs Fitted')
+plt.axhline(0, color='red', linestyle='dashed')
 plt.show()
 
 # EDA(df_no_outliers)
