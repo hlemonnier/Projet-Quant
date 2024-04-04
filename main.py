@@ -148,26 +148,44 @@ def EDA(df):
     plt.ylabel('Median Return on Investment')
     plt.show()
 
-    # Boxplots for different financial ratios
-    financial_ratios = ['roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin']
-
-    for ratio in financial_ratios:
-        plt.figure(figsize=(10, 5))
-        sns.boxplot(x=df[ratio])
-        plt.title(f'Distribution of {ratio} Across All Companies (2015-2023)')
-        plt.xlabel(ratio)
-        plt.show()
-
-    # Boxplot of ROA by year for all companies
+    # Histogramme avec ligne de densité pour 'roa'
     plt.figure(figsize=(14, 7))
-    sns.boxplot(x=df['datadate'].dt.year, y='roa', data=df)
-    plt.title('Annual ROA Distribution Across All Companies (2015-2023)')
-    plt.xlabel('Year')
-    plt.ylabel('Return on Investment')
+    sns.histplot(df['roa'], bins=50, kde=True)
+    plt.title('ROA Distribution with Density Line for All Companies (2015-2023)')
+    plt.xlabel('Return on Assets')
     plt.show()
 
+    # Empiled Boxplot avec histogramme pour 'roa'
+    plt.figure(figsize=(14, 7))
+    sns.histplot(df['roa'], element="step", fill=False, cumulative=False, bins=100, kde=True)
+    sns.boxplot(x=df['roa'], whis=[0, 100], width=0.1, color=".7")
+    plt.title('ROA Stacked Boxplot with Histogram for All Companies (2015-2023)')
+    plt.xlabel('Return on Assets')
+    plt.show()
+
+    # CDF pour 'roa'
+    plt.figure(figsize=(14, 7))
+    sns.ecdfplot(df['roa'])
+    plt.title('Cumulative Distribution Function of ROA for All Companies (2015-2023)')
+    plt.xlabel('Return on Assets')
+    plt.ylabel('CDF')
+    plt.show()
+
+    # Bee Swarm Plot pour 'roa'
+    plt.figure(figsize=(14, 7))
+    sns.swarmplot(y=df['roa'], size=2)
+    plt.title('Bee Swarm Plot of ROA for All Companies (2015-2023)')
+    plt.xlabel('Return on Assets')
+    plt.show()
+
+
+  
     # Correlation heatmap for numerical features
-    correlation_matrix = df.select_dtypes(include=[np.number]).corr()
+    numerical_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cols_to_exclude = ['gvkey', 'sic', 'gsector', 'gsubind']  # Liste des colonnes à exclure
+    cols_to_include = [col for col in numerical_cols if col not in cols_to_exclude]
+    
+    correlation_matrix = df[cols_to_include].corr()
     plt.figure(figsize=(12, 10))
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f')
     plt.title('Correlation Heatmap for Financial Ratios (2015-2023)')
