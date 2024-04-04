@@ -41,9 +41,13 @@ def prepare_variables(df):
         'iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
     ]
     X = df.drop(columns=columns_to_drop)
-    y = df['firm_value']
+    # Assurez-vous que toutes les valeurs sont numériques et gère les erreurs/NaN
     X = X.apply(pd.to_numeric, errors='coerce').fillna(0).replace([np.inf, -np.inf], 0)
-    y = y.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+    # Appliquer le logarithme sur 'firm_value', en s'assurant d'éviter les valeurs non positives
+    df['firm_value'] = df['firm_value'].apply(lambda x: np.log(x) if x > 0 else 0)
+    y = df['firm_value'].replace([np.inf, -np.inf], np.nan).fillna(0)
+
     assert len(X) == len(y), "X and y must have the same number of rows"
     return X, y
 
