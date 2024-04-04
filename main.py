@@ -285,12 +285,12 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
 
 # Dropping specified columns to prepare explanatory variables X
 columns_to_drop = [
-    'roa', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outsanding'
+    'iid','tic','exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outsanding'
 ]
 X = df_no_outliers.drop(columns=columns_to_drop)
 
 # Preparing the target variable y (column 'roa')
-y = df_no_outliers['roa']
+y = df_no_outliers['firm_value']
 
 # Making sure all data in X is numeric and finite
 X = X.apply(pd.to_numeric, errors='coerce').fillna(0)
