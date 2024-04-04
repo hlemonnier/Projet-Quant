@@ -13,6 +13,8 @@ import logging
 import os
 from tqdm import tqdm
 import wrds
+import mplcursors
+
 
 logging.basicConfig(filename='journal.log', level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
@@ -268,9 +270,7 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
 
 
 # List of financial ratios to clean for outliers
-ratios_to_clean = [
-    'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap'
-]
+ratios_to_clean = [ 'roa', 'roe', 'current_ratio', 'debt_ratio', 'operating_margin', 'firm_value', 'EBITDA', 'Mcap', 'E/D+E','EV/EBITDA',"EV/EBITDA(1+tr)","SD_StockPrice"]
 
 # Retrieve initial data
 final_df = retrieve_data()
@@ -339,13 +339,29 @@ print(model.summary())
 # Tracer les valeurs prédites par rapport aux valeurs réelles
 y_pred = model.predict(X_final)
 
-plt.figure(figsize=(10, 6))
-plt.scatter(y, y_pred, alpha=0.3)  # alpha pour la transparence des points
-plt.plot(y, y, color="red")  # Une ligne représentant le modèle parfait
-plt.title('Valeurs prédites vs Valeurs réelles')
-plt.xlabel('Valeurs réelles de ROA')
-plt.ylabel('Valeurs prédites de ROA')
-plt.show()
+def plot_predicted_vs_real(df_copy, y, y_pred):
+    import mplcursors
+
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(y, y_pred, alpha=0.3)  # alpha for point transparency
+    plt.plot(y, y, color="red")  # A line representing the perfect model
+    plt.title('Predicted Values vs Real Values')
+    plt.xlabel('Real ROA Values')
+    plt.ylabel('Predicted ROA Values')
+
+    cursor = mplcursors.cursor(scatter, hover=True)
+    @cursor.connect("add")
+    def on_add(sel):
+        # Ensure 'conm' is the column with company names
+        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index], 
+                           position=(20, 20))  # Adjust position as needed
+        sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
+
+    plt.show()
+
+# Call the function with the required arguments
+plot_predicted_vs_real(df_with_ratio, y, y_pred)
+
 # Tracer les résidus du modèle
 residuals = y - y_pred
 
@@ -356,6 +372,7 @@ plt.title('Diagramme des résidus')
 plt.xlabel('Valeurs prédites')
 plt.ylabel('Résidus')
 plt.show()
+
 
 
 # EDA(df_no_outliers)
