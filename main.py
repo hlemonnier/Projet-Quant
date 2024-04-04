@@ -95,26 +95,6 @@ bp_test_stat, bp_p_value, _, _ = bp_test
 # Imprimez les résultats du test
 print('Statistique de test Breusch-Pagan:', bp_test_stat)
 print('p-value du test Breusch-Pagan:', bp_p_value)
-def plot_predicted_vs_real(df_copy, y, y_pred):
-    import mplcursors
-
-    plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(y, y_pred, alpha=0.3)  # alpha for point transparency
-    plt.plot(y, y, color="red")  # A line representing the perfect model
-    plt.title('Predicted Values vs Real Values')
-    plt.xlabel('Real ROA Values')
-    plt.ylabel('Predicted ROA Values')
-
-    cursor = mplcursors.cursor(scatter, hover=True)
-
-    @cursor.connect("add")
-    def on_add(sel):
-        # Ensure 'conm' is the column with company names
-        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
-                           position=(20, 20))  # Adjust position as needed
-        sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
-
-    plt.show()
 
 
 # Call the function with the required arguments
@@ -187,5 +167,3 @@ def evaluate_model_performance(model_robust, X, y, y_pred, df):
 # Après avoir construit le modèle et prédit les valeurs y_pred
 evaluate_model_performance(model_robust, X_final, y, y_pred, df_with_ratio)
 
-# EDA(df_no_outliers)
-logging.info("End of programme ")

@@ -265,3 +265,25 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
         if not changed:
             break
     return included
+
+
+def plot_predicted_vs_real(df_copy, y, y_pred):
+    import mplcursors
+
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(y, y_pred, alpha=0.3)  # alpha for point transparency
+    plt.plot(y, y, color="red")  # A line representing the perfect model
+    plt.title('Predicted Values vs Real Values')
+    plt.xlabel('Real ROA Values')
+    plt.ylabel('Predicted ROA Values')
+
+    cursor = mplcursors.cursor(scatter, hover=True)
+
+    @cursor.connect("add")
+    def on_add(sel):
+        # Ensure 'conm' is the column with company names
+        sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
+                           position=(20, 20))  # Adjust position as needed
+        sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
+
+    plt.show()
