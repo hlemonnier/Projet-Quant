@@ -16,6 +16,23 @@ def main_analysis_pipeline():
     print_vif(vif)
     selected_features, model_robust = perform_regression_analysis(X_reduced, y)
     print(model_robust.summary())
+    columns_to_drop = [
+        'total_debt', 'total_revenues', 'Mcap', 'equity', 'depreciation_amortization', 'ni', 'SD_StockPrice',
+        'total_liabilities', 'long_term_debt', 'current_liabilities', 'current_assets', 'operating_income',
+        'total_investments', 'txt', 'iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind',
+        'shares_outstanding'
+    ]
+    df_for_analysis = df_no_outliers.drop(columns=columns_to_drop)
+    # Calculating pairwise correlations
+    correlation_matrix = df_for_analysis.corr()
+
+    # Let's filter out the correlation matrix for high correlations excluding self-correlation
+    high_correlation_pairs = correlation_matrix.unstack().sort_values(kind="quicksort", ascending=False)
+    high_correlation_pairs = high_correlation_pairs[high_correlation_pairs < 1]  # remove self-correlation
+    high_correlation_threshold = 0.7  # typically, a threshold of 0.75 or above is considered high
+    high_correlation_pairs = high_correlation_pairs[abs(high_correlation_pairs) > high_correlation_threshold]
+
+    print(high_correlation_pairs)
 
     X_for_prediction = sm.add_constant(X_reduced[selected_features])  # Correction ici
     y_pred = model_robust.predict(X_for_prediction)  # Utilisez X_for_prediction
@@ -37,8 +54,9 @@ def clean_outliers(df):
 
 def prepare_variables(df):
     columns_to_drop = [
-        'txt','iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
+        'stock_price','total_debt','total_revenues','Mcap','equity','depreciation_amortization','ni','SD_StockPrice','total_liabilities','long_term_debt','current_liabilities','current_assets','operating_income','total_investments','txt','iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
     ]
+    df['EBITDA'] = df['EBITDA'].apply(lambda x: np.log(x) if x > 0 else 0)
     X = df.drop(columns=columns_to_drop)
     # Assurez-vous que toutes les valeurs sont numériques et gère les erreurs/NaN
     X = X.apply(pd.to_numeric, errors='coerce').fillna(0).replace([np.inf, -np.inf], 0)
@@ -59,9 +77,22 @@ def print_vif(vif_data):
 def reduce_multicollinearity(X):
     vif_data = pd.DataFrame()
     vif_data["features"] = X.columns
+
+    # Calcul du VIF pour chaque variable
     vif_data["VIF Factor"] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
-    high_vif_columns = vif_data[vif_data["VIF Factor"] > 5]["features"].tolist()
-    X_reduced = X.drop(columns=high_vif_columns)
+
+    # Identifier les colonnes avec un VIF infini
+    infinite_vif_columns = vif_data[vif_data["VIF Factor"] == np.inf]["features"].tolist()
+
+    # Identifier les colonnes avec un VIF supérieur à 5 mais pas infini
+    high_vif_columns = vif_data[(vif_data["VIF Factor"] > 5) & (vif_data["VIF Factor"] < np.inf)]["features"].tolist()
+
+    # Combinez les deux listes des colonnes à exclure
+    columns_to_exclude = list(set(infinite_vif_columns + high_vif_columns))
+
+    # Exclure les colonnes avec un VIF élevé ou infini
+    X_reduced = X.drop(columns=columns_to_exclude)
+
     return X_reduced, vif_data
 
 
