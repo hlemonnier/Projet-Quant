@@ -37,7 +37,7 @@ def clean_outliers(df):
 
 def prepare_variables(df):
     columns_to_drop = [
-        'iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
+        'txt','iid', 'tic', 'exchg', 'gvkey', 'datadate', 'conm', 'sic', 'gsector', 'gsubind', 'shares_outstanding'
     ]
     X = df.drop(columns=columns_to_drop)
     # Assurez-vous que toutes les valeurs sont numériques et gère les erreurs/NaN
