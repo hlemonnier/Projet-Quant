@@ -2,13 +2,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import zscore
+from scipy.stats import zscore, jarque_bera
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
 from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.stats.stattools import durbin_watson
 from statsmodels.tsa.seasonal import seasonal_decompose
 import logging
 import os
@@ -298,29 +299,23 @@ def plot_predicted_vs_real(df_copy, y_real, y_pred):
 def evaluate_model_performance(model, X, y):
     import statsmodels.api as sm
     import matplotlib.pyplot as plt
-    from scipy.stats import zscore
+    from scipy.stats import zscore, linregress
     import seaborn as sns
+    from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 
-    # Assurez-vous que X inclut la constante si votre modèle en dépend
     if not 'const' in X.columns:
         X = sm.add_constant(X)
 
-    # Recalculer y_pred pour s'assurer de l'alignement avec y
     y_pred = model.predict(X)
 
-    # Calcul du R² et du R² ajusté
     r_squared = model.rsquared
     adjusted_r_squared = model.rsquared_adj
     print(f"R-squared: {r_squared}")
     print(f"Adjusted R-squared: {adjusted_r_squared}")
 
-    # Calcul des résidus
     residuals = y - y_pred
-
-    # Vérifiez que y_pred et y ont la même longueur (sécurité supplémentaire)
     assert len(y_pred) == len(y), "y_pred and y must have the same length"
 
-    # Diagramme des résidus
     plt.figure(figsize=(10, 6))
     plt.scatter(y_pred, residuals, alpha=0.3)
     plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
@@ -329,12 +324,10 @@ def evaluate_model_performance(model, X, y):
     plt.ylabel('Résidus')
     plt.show()
 
-    # Q-Q plot des résidus
     sm.qqplot(residuals, line='s')
     plt.title('Q-Q plot des résidus')
     plt.show()
 
-    # Analyse de la distribution des résidus avec un histogramme
     plt.figure(figsize=(10, 6))
     sns.histplot(residuals, kde=True)
     plt.title('Distribution des résidus')
@@ -342,8 +335,28 @@ def evaluate_model_performance(model, X, y):
     plt.show()
 
     # Test de Breusch-Pagan pour l'hétéroscédasticité
-    from statsmodels.stats.diagnostic import het_breuschpagan
     bp_test = het_breuschpagan(residuals, X)
     labels = ['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value']
     print("Test de Breusch-Pagan pour l'hétéroscédasticité :", dict(zip(labels, bp_test)))
+
+    # Test de White pour l'hétéroscédasticité
+    white_test = het_white(residuals, X)
+    labels_white = ['Test Statistic', 'Test p-value', 'F-Statistic', 'F-Test p-value']
+    print("Test de White pour l'hétéroscédasticité :", dict(zip(labels_white, white_test)))
+
+    dw_stat = durbin_watson(residuals)
+    jb_stat, jb_pvalue = jarque_bera(residuals)
+    condition_number = np.linalg.cond(X.values)
+    print(f"Statistique de Durbin-Watson: {dw_stat}")
+    print(f"Test de Jarque-Bera: Statistique = {jb_stat}, p-value = {jb_pvalue}")
+    print(f"Nombre de condition: {condition_number}")
+    # Tests sur les coefficients (significativité)
+    print("\nSignificativité des coefficients:")
+    print(model.summary().tables[1])
+
+    split_index = len(y) // 2
+    model_first_half = sm.OLS(y[:split_index], X[:split_index]).fit()
+    model_second_half = sm.OLS(y[split_index:], X[split_index:]).fit()
+    print("\nComparaison des R-squared - Première moitié vs. Seconde moitié des données:")
+    print(f"Première moitié: {model_first_half.rsquared}, Seconde moitié: {model_second_half.rsquared}")
 
