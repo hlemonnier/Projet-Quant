@@ -127,9 +127,9 @@ def filter_companies_with_data_for_2023(df):
     df = df[df['equity'] != 0]
 
     # Filter out rows where ROE or ROA are above 200%
-    df = df[(df['roe'] <= 2) & (df['roa'] <= 2)]
-
+    df = df[(df['roe'].abs() <= 25) & (df['roa'].abs() <= 25)]
     return df
+
 
 def EDA(df):
     # Convert the 'datadate' column to datetime
