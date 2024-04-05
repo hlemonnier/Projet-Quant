@@ -15,6 +15,7 @@ def main_analysis_pipeline():
     X_reduced, vif = reduce_multicollinearity(X)
     print_vif(vif)
     selected_features, model_robust = perform_regression_analysis(X_reduced, y)
+    print(model_robust.summary())
 
     X_for_prediction = sm.add_constant(X_reduced[selected_features])  # Correction ici
     y_pred = model_robust.predict(X_for_prediction)  # Utilisez X_for_prediction
