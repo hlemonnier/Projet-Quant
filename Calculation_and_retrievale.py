@@ -3,10 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import zscore, jarque_bera
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import r2_score, mean_squared_error
 import statsmodels.api as sm
+from sklearn.preprocessing import StandardScaler
 from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
@@ -360,3 +363,36 @@ def evaluate_model_performance(model, X, y):
     print("\nComparaison des R-squared - Première moitié vs. Seconde moitié des données:")
     print(f"Première moitié: {model_first_half.rsquared}, Seconde moitié: {model_second_half.rsquared}")
 
+
+def compare_models_for_firm_value(df, features_columns, target_column='firm_value', test_size=0.2, random_state=42):
+    # Séparation des caractéristiques et de la cible
+    X = df[features_columns]
+    y = df[target_column]
+
+    # Imputation des valeurs manquantes
+    imputer = SimpleImputer(strategy='mean')  # Vous pouvez choisir 'median' ou 'most_frequent' comme stratégie
+    X_imputed = imputer.fit_transform(X)
+
+    # Division en ensembles d'apprentissage et de test
+    X_train, X_test, y_train, y_test = train_test_split(X_imputed, y, test_size=test_size, random_state=random_state)
+
+    # Normalisation des caractéristiques
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # Dictionnaire des modèles à comparer
+    models = {
+        "Régression Linéaire": LinearRegression(),
+        "Régression Ridge": Ridge(alpha=1.0),
+        "Forêt Aléatoire": RandomForestRegressor(n_estimators=100, random_state=random_state)
+    }
+
+    # Entraînement et évaluation des modèles
+    for name, model in models.items():
+        model.fit(X_train_scaled, y_train)
+        y_pred = model.predict(X_test_scaled)
+
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        print(f"{name} - MSE: {mse:.4f}, R²: {r2:.4f}")

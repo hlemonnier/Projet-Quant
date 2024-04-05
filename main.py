@@ -40,6 +40,7 @@ def main_analysis_pipeline():
     plot_predicted_vs_real(df_no_outliers, y, y_pred)  # Assurez-vous que cette fonction est définie correctement pour afficher le plot
     plot_residuals_vs_fitted(y_pred, y)
     evaluate_model_performance(model_robust, X_for_prediction, y)  # Corrigé pour utiliser X_for_prediction
+    compare_models_for_firm_value(df_no_outliers,selected_features ,test_size=0.2, random_state=42)
 
 
 def clean_outliers(df):
