@@ -122,9 +122,12 @@ def filter_companies_with_data_for_2023(df):
     # Filtrer pour exclure les entreprises identifiées sans données en 2023
     df = df[~df['gvkey'].isin(gvkeys_without_data_for_2023)]
 
-    # Ensuite, filtrer pour supprimer les lignes où 'equity' est NA ou nul
-    #df = df.dropna(subset=['equity'])
-    #df = df[df['equity'] != 0]
+    # Additionally, filter out rows where 'equity' is NA or zero
+    df = df.dropna(subset=['equity'])
+    df = df[df['equity'] != 0]
+
+    # Filter out rows where ROE or ROA are above 200%
+    df = df[(df['roe'] <= 2) & (df['roa'] <= 2)]
 
     return df
 
