@@ -14,6 +14,9 @@ from statsmodels.stats.diagnostic import het_breuschpagan
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 from statsmodels.tsa.seasonal import seasonal_decompose
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import cross_val_score
 import logging
 import os
 from tqdm import tqdm
@@ -133,6 +136,7 @@ def filter_companies_with_data_for_2023(df):
     # Filter out rows where ROE or ROA are above 200%
     df = df[(df['roe'].abs() <= 25) & (df['roa'].abs() <= 25)]
     return df
+
 
 
 def EDA(df):
@@ -381,12 +385,39 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
+    
+
     # Dictionnaire des modèles à comparer
     models = {
         "Régression Linéaire": LinearRegression(),
         "Régression Ridge": Ridge(alpha=1.0),
         "Forêt Aléatoire": RandomForestRegressor(n_estimators=100, random_state=random_state)
     }
+            # Hyperparamètres à tester
+    param_grid = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [None, 10, 20, 30],
+            'min_samples_split': [2, 5, 10]
+    }
+
+    # Modèle pour lequel trouver les meilleurs hyperparamètres
+    rf = RandomForestRegressor(random_state=42)
+
+    # Configuration de GridSearchCV
+    grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='neg_mean_squared_error', verbose=2, n_jobs=-1)
+
+    # Ajustement sur les données d'entraînement
+    grid_search.fit(X_train_scaled, y_train)
+
+    # Meilleurs paramètres et score
+    print(f"Meilleurs paramètres: {grid_search.best_params_}")
+    print(f"Meilleur score (MSE): {-grid_search.best_score_}")
+
+    # Evaluation avec validation croisée
+    scores = cross_val_score(estimator=rf, X=X_train_scaled, y=y_train, cv=5, scoring='neg_mean_squared_error')
+
+    print(f"Scores de validation croisée (MSE): {-scores}")
+    print(f"Moyenne des scores: {-scores.mean()}")
 
     # Entraînement et évaluation des modèles
     for name, model in models.items():
