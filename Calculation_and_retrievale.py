@@ -116,12 +116,17 @@ def filter_companies_with_data_for_2023(df):
     # Identifier les gvkeys des entreprises ayant des données pour l'année 2023
     gvkeys_with_data_for_2023 = df[df['datadate'].dt.year == 2023]['gvkey'].unique()
 
-    # Filtrer le DataFrame pour ne conserver que les données des entreprises identifiées
-    filtered_df = df[df['gvkey'].isin(gvkeys_with_data_for_2023)]
-    # Identifier les gvkeys des entreprises qui ont des données non nulles et non NA pour 'equity' en 2023
-    # Supprimer toutes les lignes où 'equity' est NA
-    filtered_df = df.dropna(subset=['equity'])
-    return filtered_df
+    # Trouver les gvkeys des entreprises qui n'ont PAS de données pour 2023
+    gvkeys_without_data_for_2023 = df[~df['gvkey'].isin(gvkeys_with_data_for_2023)]['gvkey'].unique()
+
+    # Filtrer pour exclure les entreprises identifiées sans données en 2023
+    df = df[~df['gvkey'].isin(gvkeys_without_data_for_2023)]
+
+    # Ensuite, filtrer pour supprimer les lignes où 'equity' est NA ou nul
+    #df = df.dropna(subset=['equity'])
+    #df = df[df['equity'] != 0]
+
+    return df
 
 def EDA(df):
     # Convert the 'datadate' column to datetime
