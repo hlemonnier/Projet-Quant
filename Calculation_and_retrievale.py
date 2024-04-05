@@ -22,6 +22,8 @@ import os
 from tqdm import tqdm
 import wrds
 import mplcursors
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
 
 
 def retrieve_data(use_cached=True):
@@ -374,7 +376,7 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     y = df[target_column]
 
     # Imputation des valeurs manquantes
-    imputer = SimpleImputer(strategy='mean')  # Vous pouvez choisir 'median' ou 'most_frequent' comme stratégie
+    imputer = SimpleImputer(strategy='mean')
     X_imputed = imputer.fit_transform(X)
 
     # Division en ensembles d'apprentissage et de test
@@ -385,45 +387,50 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    
-
     # Dictionnaire des modèles à comparer
     models = {
         "Régression Linéaire": LinearRegression(),
-        "Régression Ridge": Ridge(alpha=1.0),
-        "Forêt Aléatoire": RandomForestRegressor(n_estimators=100, random_state=random_state)
+        "Régression Ridge": Ridge(alpha=1.0)
     }
-            # Hyperparamètres à tester
+
+    # Paramètres pour GridSearchCV avec la Forêt Aléatoire
     param_grid = {
-            'n_estimators': [100, 200, 300],
-            'max_depth': [None, 10, 20, 30],
-            'min_samples_split': [2, 5, 10]
+        'n_estimators': [100, 200, 300],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10]
     }
-
-    # Modèle pour lequel trouver les meilleurs hyperparamètres
-    rf = RandomForestRegressor(random_state=42)
-
-    # Configuration de GridSearchCV
+    rf = RandomForestRegressor(random_state=random_state)
     grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='neg_mean_squared_error', verbose=2, n_jobs=-1)
-
-    # Ajustement sur les données d'entraînement
     grid_search.fit(X_train_scaled, y_train)
+    
+    # Affichage des meilleurs paramètres et ajout du modèle optimisé au dictionnaire
+    print(f"Meilleurs paramètres pour la Forêt Aléatoire: {grid_search.best_params_}")
+    models['Forêt Aléatoire'] = grid_search.best_estimator_
+    
+    r2_scores = {}  # Pour stocker le R^2 de chaque modèle
 
-    # Meilleurs paramètres et score
-    print(f"Meilleurs paramètres: {grid_search.best_params_}")
-    print(f"Meilleur score (MSE): {-grid_search.best_score_}")
-
-    # Evaluation avec validation croisée
-    scores = cross_val_score(estimator=rf, X=X_train_scaled, y=y_train, cv=5, scoring='neg_mean_squared_error')
-
-    print(f"Scores de validation croisée (MSE): {-scores}")
-    print(f"Moyenne des scores: {-scores.mean()}")
-
-    # Entraînement et évaluation des modèles
+    # Entraînement (si nécessaire) et évaluation des modèles
     for name, model in models.items():
-        model.fit(X_train_scaled, y_train)
+        if name != 'Forêt Aléatoire':  # La Forêt Aléatoire a déjà été entraînée par GridSearchCV
+            model.fit(X_train_scaled, y_train)
         y_pred = model.predict(X_test_scaled)
 
         mse = mean_squared_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
+        r2_scores[name] = r2  # Stocker le R^2 dans le dictionnaire
         print(f"{name} - MSE: {mse:.4f}, R²: {r2:.4f}")
+
+    # Tracé de l'importance des features pour la forêt aléatoire
+    forest_model = models['Forêt Aléatoire']
+    importances = forest_model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    plt.figure(figsize=(10, 6))
+    plt.title("Importance des Features avec Forêt Aléatoire")
+    plt.bar(range(X.shape[1]), importances[indices], color="r", align="center")
+    plt.xticks(range(X.shape[1]), [features_columns[i] for i in indices], rotation=90)
+    plt.xlim([-1, X.shape[1]])
+    plt.show()
+
+    # Affichage du R^2 spécifique à la forêt aléatoire
+    print(f"R² spécifique pour la Forêt Aléatoire: {r2_scores['Forêt Aléatoire']:.4f}")

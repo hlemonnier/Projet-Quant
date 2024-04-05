@@ -179,6 +179,5 @@ def plot_residuals_vs_fitted(y_pred, y):
     plt.axhline(0, color='red', linestyle='dashed')
     plt.show()
 
-
 if __name__ == '__main__':
     main_analysis_pipeline()
