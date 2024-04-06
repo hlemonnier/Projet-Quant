@@ -431,6 +431,17 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     plt.xticks(range(X.shape[1]), [features_columns[i] for i in indices], rotation=90)
     plt.xlim([-1, X.shape[1]])
     plt.show()
-
-    # Affichage du R^2 spécifique à la forêt aléatoire
     print(f"R² spécifique pour la Forêt Aléatoire: {r2_scores['Forêt Aléatoire']:.4f}")
+
+    # Prédiction des valeurs avec la forêt aléatoire et création d'un graphique
+    forest_model = models['Forêt Aléatoire']
+    y_pred_forest = forest_model.predict(X_test_scaled)  # Prédictions avec la forêt aléatoire
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y_test, y_pred_forest, alpha=0.3, color='blue')  # Plot des prédictions vs valeurs réelles
+    plt.xlabel('Valeurs Réelles')
+    plt.ylabel('Valeurs Prédites')
+    plt.title('Valeurs Prédites vs Valeurs Réelles pour la Forêt Aléatoire')
+    # Tracer la ligne y=x pour la référence
+    plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, color='red')
+    plt.show()
