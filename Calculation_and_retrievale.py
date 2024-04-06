@@ -45,19 +45,19 @@ def retrieve_data(use_cached=True):
                             permno, shrcd, exchcd, hsiccd, ticker
                             from crsp.msenames
                             """, date_cols=['namedt', 'nameendt'])
-        # Créez une liste des tickers uniques
+        # Create a list of unique tickers
         ticker_list = mse['ticker'].dropna().unique().tolist()
-        # Élimination des doublons en convertissant la liste en un ensemble, puis reconvertir en liste
+        # Eliminate duplicates by converting the list into a set, then back into a list
         ticker_list = list(set(ticker_list))
-        # Convertissez la liste des tickers en une chaîne pour la requête SQL
+        # Convert the list of tickers into a string for the SQL query
         tickers_str = "', '".join(ticker_list)
-        # Exécutez votre requête pour obtenir les gvkeys des entreprises
+        # Execute your request to obtain the companies' gvkeys
         compustat_data = db.raw_sql("""
                             SELECT gvkey, conm
                             FROM comp.company
                             """)
         logging.info("Starting the gvkey retrieving...")
-        # Créez une liste des gvkeys uniques
+        # Create a list of unique gvkeys
         gvkey_list = compustat_data['gvkey'].unique().tolist()
         gvkeys_str = "', '".join(gvkey_list)
         logging.info(f"Processing gvkey: {gvkeys_str}")
@@ -81,12 +81,12 @@ def retrieve_data(use_cached=True):
             """)
         logging.info(f"Processing data : {retrieve_data_sql}")
         logging.info("All datas are recovered")
-        # Exécutez la requête pour obtenir les données
+        # Run the query to obtain the data
         dfs = [retrieve_data_sql]
         df_copy = dfs[0]
         for df in dfs[1:]:
             df_copy = pd.merge(df_copy, df, on=['gvkey','iid' 'datadate', 'conm', 'sic'], how='outer')
-        # Exporter le DataFrame final en fichier Excel
+        # Export the final DataFrame as an Excel file
     df_copy.to_excel('financial_data.xlsx', index=False)
     logging.info("Excel file created")
     return pd.read_excel(file_name)
@@ -119,16 +119,16 @@ def ratio_calculation(df):
 
 
 def filter_companies_with_data_for_2023(df):
-    # Convertir la colonne 'datadate' en datetime si ce n'est pas déjà fait
+    # Convert the 'datadate' column to datetime if you haven't already done so
     df['datadate'] = pd.to_datetime(df['datadate'])
 
-    # Identifier les gvkeys des entreprises ayant des données pour l'année 2023
+    # Identify the gvkeys of companies with data for the year 2023
     gvkeys_with_data_for_2023 = df[df['datadate'].dt.year == 2023]['gvkey'].unique()
 
-    # Trouver les gvkeys des entreprises qui n'ont PAS de données pour 2023
+    # Find the gvkeys of companies that have NO data for 2023
     gvkeys_without_data_for_2023 = df[~df['gvkey'].isin(gvkeys_with_data_for_2023)]['gvkey'].unique()
 
-    # Filtrer pour exclure les entreprises identifiées sans données en 2023
+    # Filter to exclude companies identified as having no data in 2023
     df = df[~df['gvkey'].isin(gvkeys_without_data_for_2023)]
 
     # Additionally, filter out rows where 'equity' is NA or zero
@@ -158,7 +158,7 @@ def EDA(df):
     plt.ylabel('Median Return on Investment')
     plt.show()
 
-    # Histogramme avec ligne de densité pour 'roa'
+    # Histogram with density line for 'roa
     plt.figure(figsize=(14, 7))
     sns.histplot(df['roa'], bins=50, kde=True)
     plt.title('ROA Distribution with Density Line for All Companies (2015-2023)')
@@ -173,7 +173,7 @@ def EDA(df):
     plt.xlabel('Return on Assets')
     plt.show()
 
-    # CDF pour 'roa'
+    # CDF for 'roa
     plt.figure(figsize=(14, 7))
     sns.ecdfplot(df['roa'])
     plt.title('Cumulative Distribution Function of ROA for All Companies (2015-2023)')
@@ -181,7 +181,7 @@ def EDA(df):
     plt.ylabel('CDF')
     plt.show()
 
-    # Bee Swarm Plot pour 'roa'
+    # Bee Swarm Plot for 'roa
     plt.figure(figsize=(14, 7))
     sns.swarmplot(y=df['roa'], size=2)
     plt.title('Bee Swarm Plot of ROA for All Companies (2015-2023)')
@@ -270,23 +270,22 @@ def stepwise_selection(X, y, initial_list=[], threshold_in=0.04, threshold_out=0
     return included
 
 
-def plot_predicted_vs_real(df_copy, y_real, y_pred):
+def plot_predicted_vs_real(df_copy, y_real, y_pred): 
     """
-        Trace un graphique interactif comparant les valeurs prédites aux valeurs réelles,
-        avec une ligne représentant les prédictions parfaites et des annotations pour chaque point.
-
+        Plots an interactive graph comparing predicted values with actual values,
+        with a line representing perfect predictions and annotations for each point.
         Parameters:
-        - df_copy: DataFrame contenant les données originales, utilisé pour extraire des informations supplémentaires pour les annotations.
-        - y_real: Série pandas contenant les valeurs réelles.
-        - y_pred: Série pandas contenant les valeurs prédites par le modèle.
+        - df_copy: DataFrame containing the original data, used to extract additional information for annotations.
+        - y_real: Pandas series containing real values.
+        - y_pred: Pandas series containing the values predicted by the model.
         """
     plt.figure(figsize=(10, 6))
     scatter = plt.scatter(y_real, y_pred, alpha=0.3, color='blue')  # alpha for point transparency
-    plt.title('Valeurs Prédites vs Valeurs Réelles')
-    plt.xlabel('Valeurs Réelles')
-    plt.ylabel('Valeurs Prédites')
+    plt.title('Predicted values vs. actual values')
+    plt.xlabel('Real Values')
+    plt.ylabel('Predicted Values')
 
-    # Trace la ligne y = x pour référence
+    # Draw the line y = x as a reference
     max_val = max(y_real.max(), y_pred.max())
     min_val = min(y_real.min(), y_pred.min())
     plt.plot([min_val, max_val], [min_val, max_val], color='red', linestyle='--', lw=2)
@@ -295,10 +294,10 @@ def plot_predicted_vs_real(df_copy, y_real, y_pred):
 
     @cursor.connect("add")
     def on_add(sel):
-        # Assurez-vous que 'conm' est la colonne avec les noms des entreprises
-        # Ajustez 'conm' au nom de votre colonne si nécessaire
+        # Make sure that 'conm' is the column with the company names
+        # Adjust 'conm' to your column name if necessary
         sel.annotation.set(text=df_copy['conm'].iloc[sel.target.index],
-                           position=(20, -20))  # Ajustez la position selon le besoin
+                           position=(20, -20))  # Adjust position as required
         sel.annotation.get_bbox_patch().set(fc="white", alpha=0.6)
 
     plt.grid(True)
@@ -328,72 +327,71 @@ def evaluate_model_performance(model, X, y):
     plt.figure(figsize=(10, 6))
     plt.scatter(y_pred, residuals, alpha=0.3)
     plt.hlines(y=0, xmin=y_pred.min(), xmax=y_pred.max(), color="red")
-    plt.title('Diagramme des résidus')
-    plt.xlabel('Valeurs prédites')
-    plt.ylabel('Résidus')
+    plt.title('Residuals diagram')
+    plt.xlabel('Predicted value')
+    plt.ylabel('Residues')
     plt.show()
 
     sm.qqplot(residuals, line='s')
-    plt.title('Q-Q plot des résidus')
+    plt.title('Q-Q plot of residuals')
     plt.show()
 
     plt.figure(figsize=(10, 6))
     sns.histplot(residuals, kde=True)
-    plt.title('Distribution des résidus')
-    plt.xlabel('Résidus')
+    plt.title('Distribution of residues')
+    plt.xlabel('Résidues')
     plt.show()
 
-    # Test de Breusch-Pagan pour l'hétéroscédasticité
+    # Breusch-Pagan test for heteroskedasticity
     bp_test = het_breuschpagan(residuals, X)
     labels = ['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value']
-    print("Test de Breusch-Pagan pour l'hétéroscédasticité :", dict(zip(labels, bp_test)))
+    print("Breusch-Pagan test for heteroscedasticity :", dict(zip(labels, bp_test)))
 
-    # Test de White pour l'hétéroscédasticité
+    # White's test for heteroscedasticity
     white_test = het_white(residuals, X)
     labels_white = ['Test Statistic', 'Test p-value', 'F-Statistic', 'F-Test p-value']
-    print("Test de White pour l'hétéroscédasticité :", dict(zip(labels_white, white_test)))
-
+    print("White's test for heteroskedasticity :", dict(zip(labels_white, white_test)))
     dw_stat = durbin_watson(residuals)
     jb_stat, jb_pvalue = jarque_bera(residuals)
     condition_number = np.linalg.cond(X.values)
-    print(f"Statistique de Durbin-Watson: {dw_stat}")
-    print(f"Test de Jarque-Bera: Statistique = {jb_stat}, p-value = {jb_pvalue}")
-    print(f"Nombre de condition: {condition_number}")
-    # Tests sur les coefficients (significativité)
-    print("\nSignificativité des coefficients:")
+    print(f"Durbin-Watson statistic: {dw_stat}")
+    print(f"Jarque-Bera test: Statistics = {jb_stat}, p-value = {jb_pvalue}")
+    print(f"Number of conditions: {condition_number}")
+    
+    # Tests on coefficients (significance) 
+    print("\nSignificance of coefficients:")
     print(model.summary().tables[1])
-
     split_index = len(y) // 2
     model_first_half = sm.OLS(y[:split_index], X[:split_index]).fit()
     model_second_half = sm.OLS(y[split_index:], X[split_index:]).fit()
-    print("\nComparaison des R-squared - Première moitié vs. Seconde moitié des données:")
-    print(f"Première moitié: {model_first_half.rsquared}, Seconde moitié: {model_second_half.rsquared}")
+    print("\nR-squared comparison - First half vs. second half of the data:")
+    print(f"First half: {model_first_half.rsquared}, Second half: {model_second_half.rsquared}")
 
 
 def compare_models_for_firm_value(df, features_columns, target_column='firm_value', test_size=0.2, random_state=42):
-    # Séparation des caractéristiques et de la cible
+    # Separation of features and target
     X = df[features_columns]
     y = df[target_column]
 
-    # Imputation des valeurs manquantes
+    # Imputation of missing values
     imputer = SimpleImputer(strategy='mean')
     X_imputed = imputer.fit_transform(X)
 
-    # Division en ensembles d'apprentissage et de test
+    # Division into learning and test sets
     X_train, X_test, y_train, y_test = train_test_split(X_imputed, y, test_size=test_size, random_state=random_state)
 
-    # Normalisation des caractéristiques
+    # Standardisation of characteristics
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # Dictionnaire des modèles à comparer
+    # Dictionary of models to compare
     models = {
         "Régression Linéaire": LinearRegression(),
         "Régression Ridge": Ridge(alpha=1.0)
     }
 
-    # Paramètres pour GridSearchCV avec la Forêt Aléatoire
+    # Settings for GridSearchCV with the Random Forest
     param_grid = {
         'n_estimators': [100, 200, 300],
         'max_depth': [None, 10, 20, 30],
@@ -403,8 +401,8 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='neg_mean_squared_error', verbose=2, n_jobs=-1)
     grid_search.fit(X_train_scaled, y_train)
     
-    # Affichage des meilleurs paramètres et ajout du modèle optimisé au dictionnaire
-    print(f"Meilleurs paramètres pour la Forêt Aléatoire: {grid_search.best_params_}")
+    # Display of the best parameters and addition of the optimised model to the dictionary
+    print(f"Better parameters for the Random Forest: {grid_search.best_params_}")
     models['Forêt Aléatoire'] = grid_search.best_estimator_
     
     r2_scores = {}  # Pour stocker le R^2 de chaque modèle
@@ -426,7 +424,7 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
     indices = np.argsort(importances)[::-1]
 
     plt.figure(figsize=(10, 6))
-    plt.title("Importance des Features avec Forêt Aléatoire")
+    plt.title("Importance of Features with Random Forest")
     plt.bar(range(X.shape[1]), importances[indices], color="r", align="center")
     plt.xticks(range(X.shape[1]), [features_columns[i] for i in indices], rotation=90)
     plt.xlim([-1, X.shape[1]])
@@ -439,9 +437,9 @@ def compare_models_for_firm_value(df, features_columns, target_column='firm_valu
 
     plt.figure(figsize=(10, 6))
     plt.scatter(y_test, y_pred_forest, alpha=0.3, color='blue')  # Plot des prédictions vs valeurs réelles
-    plt.xlabel('Valeurs Réelles')
-    plt.ylabel('Valeurs Prédites')
-    plt.title('Valeurs Prédites vs Valeurs Réelles pour la Forêt Aléatoire')
+    plt.xlabel('Real Values')
+    plt.ylabel('Predicted Values')
+    plt.title('Predicted values vs. actual values for the Aleator Forest')
     # Tracer la ligne y=x pour la référence
     plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, color='red')
     plt.show()

@@ -34,12 +34,12 @@ def main_analysis_pipeline():
 
     print(high_correlation_pairs)
 
-    X_for_prediction = sm.add_constant(X_reduced[selected_features])  # Correction ici
-    y_pred = model_robust.predict(X_for_prediction)  # Utilisez X_for_prediction
+    X_for_prediction = sm.add_constant(X_reduced[selected_features])  
+    y_pred = model_robust.predict(X_for_prediction)  
 
-    plot_predicted_vs_real(df_no_outliers, y, y_pred)  # Assurez-vous que cette fonction est définie correctement pour afficher le plot
+    plot_predicted_vs_real(df_no_outliers, y, y_pred)  
     plot_residuals_vs_fitted(y_pred, y)
-    evaluate_model_performance(model_robust, X_for_prediction, y)  # Corrigé pour utiliser X_for_prediction
+    evaluate_model_performance(model_robust, X_for_prediction, y)  
     compare_models_for_firm_value(df_no_outliers,selected_features ,test_size=0.2, random_state=42)
 
 
@@ -153,7 +153,7 @@ def perform_regression_analysis(X, y, use_transformation=False, use_wls=False):
     # Perform the Breusch-Pagan test
     bp_test_stat, bp_p_value, _, _ = het_breuschpagan(initial_model.resid, initial_model.model.exog)
     print('Breusch-Pagan Test Statistic:', bp_test_stat)
-    print('p-value du test Breusch-Pagan:', bp_p_value)
+    print('p-value of the Breusch-Pagan test:', bp_p_value)
 
     # Decide on using WLS or robust errors based on p-value and the use_wls flag
     if bp_p_value < 0.05 and use_wls:
